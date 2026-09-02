@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kortz Center Secondary Loot</title>
+<style>
+  :root{
+    --bg:#0e1420; --panel:#141c2b; --panel-2:#1a2436; --line:#2a3549;
+    --text:#dfe6f0; --dim:#7f8fa8; --amber:#e0a94a; --teal:#4aa8a0;
+    --red:#c65b52; --purple:#9a7fd1;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'IBM Plex Mono','Consolas',monospace;font-size:13.5px;line-height:1.5;padding:26px 18px 60px;}
+  h1,h2,h3{font-family:'Segoe UI',system-ui,sans-serif;font-weight:700;margin:0 0 4px;}
+  .wrap{max-width:1180px;margin:0 auto;}
+  .header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:20px;}
+  .header h1{font-size:21px;letter-spacing:0.5px;}
+  .header .sub{color:var(--dim);font-size:12px;}
+  .grid{display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start;}
+  @media (max-width:900px){.grid{grid-template-columns:1fr;}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:15px 17px;margin-bottom:14px;}
+  .panel h2{font-size:12.5px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:11px;}
+  label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px;margin-top:11px;}
+  label:first-of-type{margin-top:0;}
+  input[type=number],select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:7px 8px;border-radius:4px;font-family:inherit;font-size:13.5px;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding:9px 11px;background:var(--panel-2);border-radius:5px;border:1px solid var(--line);}
+  .toggle-row span{font-size:12.5px;}
+  .switch{position:relative;width:40px;height:21px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;cursor:pointer;inset:0;background:#3a4459;border-radius:22px;transition:.15s;}
+  .slider:before{content:"";position:absolute;height:15px;width:15px;left:3px;top:3px;background:#dfe6f0;border-radius:50%;transition:.15s;}
+  input:checked + .slider{background:var(--teal);}
+  input:checked + .slider:before{transform:translateX(19px);}
+  .capacity-note{font-size:11.5px;color:var(--dim);background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:8px 10px;margin-top:11px;}
+  .capacity-note b{color:var(--text);}
+
+  .buyer-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .buyer-row select{flex:1;font-size:12.5px;}
+  button{font-family:inherit;cursor:pointer;border-radius:4px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);padding:6px 12px;font-size:12px;}
+  button:hover{border-color:var(--teal);}
+  button.ghost{background:transparent;}
+  button.danger{color:var(--red);border-color:transparent;background:transparent;padding:2px 6px;}
+  button.danger:hover{color:#fff;background:var(--red);}
+  button:disabled{opacity:0.35;cursor:not-allowed;}
+  .run-btn{width:100%;padding:12px;background:var(--teal);color:#0b1119;font-weight:700;border:none;font-size:13.5px;letter-spacing:0.5px;border-radius:5px;margin-top:4px;}
+  .run-btn:hover{background:#5cbdb4;}
+
+  .payout-panel{margin-top:12px;}
+  .payout-options{display:grid;gap:7px;margin-bottom:12px;}
+  .payout-option{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 9px;background:var(--panel-2);border:1px solid var(--line);border-radius:5px;}
+  .payout-option label{display:flex;align-items:center;gap:8px;margin:0;color:var(--text);font-size:12px;}
+  .payout-option input[type=checkbox]{width:auto;}
+  .payout-option .bonus{color:var(--dim);font-size:11px;}
+  .payout-total{border-top:1px solid var(--line);padding-top:10px;}
+  .payout-row{display:flex;justify-content:space-between;gap:10px;padding:3px 0;}
+  .payout-row .label{color:var(--dim);}
+  .payout-row .value{font-family:'Segoe UI',sans-serif;font-size:18px;font-weight:700;color:var(--text);}
+  .payout-note{font-size:10.5px;color:var(--dim);margin-top:7px;line-height:1.5;}
+
+  .tier-group{border:1px solid var(--line);border-radius:6px;margin-bottom:10px;overflow:hidden;}
+  .tier-head{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--panel-2);cursor:pointer;user-select:none;}
+  .tier-head .name{font-weight:700;font-size:13px;}
+  .tier-50 .name{color:var(--purple);}
+  .tier-30 .name{color:var(--amber);}
+  .tier-20 .name{color:var(--teal);}
+  .tier-10 .name{color:#9fb0c9;}
+  .tier-5 .name{color:var(--dim);}
+  .tier-head .cnt{font-size:11px;color:var(--dim);}
+  .tier-body{max-height:0;overflow:hidden;transition:max-height .18s ease;}
+  .tier-body.open{max-height:1400px;}
+  .item-row{display:flex;align-items:center;gap:9px;padding:6px 12px;border-top:1px solid #1e2738;font-size:12.5px;}
+  .item-row label{margin:0;color:var(--text);font-size:12.5px;flex:1;display:flex;align-items:center;gap:8px;}
+  .item-row input[type=checkbox]{width:auto;flex:none;}
+  .item-val{color:var(--dim);font-size:11.5px;white-space:nowrap;}
+  .chip{display:inline-block;font-size:10px;padding:2px 6px;border-radius:9px;background:var(--panel);color:var(--dim);border:1px solid var(--line);}
+  .chip.cutter{color:var(--teal);border-color:var(--teal);}
+  .chip.buyer{color:var(--red);border-color:var(--red);}
+  .chip.loading{color:var(--purple);border-color:var(--purple);}
+  .loading-row{background:rgba(154,127,209,0.06);}
+  /* .depo-row{display:flex;align-items:center;gap:10px;padding:8px 12px;}
+  .depo-row input[type=number]{width:70px;} */
+
+  .results{margin-top:20px;}
+  .summary-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 14px;min-width:110px;}
+  .stat .num{font-family:'Segoe UI',sans-serif;font-size:18px;font-weight:700;}
+  .stat .lbl{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;}
+
+  .bag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:13px;}
+  .bag{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:13px 15px;}
+  .bag h3{font-size:12.5px;color:var(--amber);margin-bottom:2px;}
+  .bag .barwrap{height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden;margin:6px 0 10px;}
+  .bag .bar{height:100%;background:var(--teal);}
+  .bag ul{list-style:none;margin:0;padding:0;}
+  .bag li{display:flex;justify-content:space-between;gap:6px;padding:4px 0;font-size:12px;border-bottom:1px solid #1e2738;}
+  .bag li:last-child{border-bottom:none;}
+  .bag li .nm{flex:1;}
+  .bag li .wt{color:var(--dim);font-size:11px;white-space:nowrap;}
+  .bag .fill{color:var(--dim);font-size:11px;margin-top:8px;border-top:1px solid var(--line);padding-top:6px;}
+
+  .leftover{background:var(--panel);border:1px solid var(--red);border-radius:6px;padding:13px 15px;margin-top:14px;}
+  .leftover h3{font-size:12.5px;color:var(--red);margin-bottom:8px;}
+  .leftover ul{list-style:none;margin:0;padding:0;}
+  .leftover li{padding:3px 0;font-size:12px;color:var(--dim);}
+  .leftover li b{color:var(--text);}
+
+  .note{font-size:11px;color:var(--dim);margin-top:12px;line-height:1.6;border-top:1px solid var(--line);padding-top:9px;}
+  .presetbar{display:flex;gap:8px;margin-bottom:10px;}
+  .presetbar button{flex:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div>
+      <h1>KORTZ CENTER - SECONDARY LOOT</h1>
+      <div class="sub">WIP Loot Table</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT -->
+    <div>
+      <div class="panel">
+        <h2>Crew Setup</h2>
+        <label>Players on this run</label>
+        <select id="players">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option>
+        </select>
+        <div class="toggle-row">
+          <span>Glass Cutter Available</span>
+          <label class="switch"><input type="checkbox" id="hasCutter" checked><span class="slider"></span></label>
+        </div>
+        <!-- <div class="capacity-note">Every player's duffel is <b>100 capacity</b>. Each item consumes its listed weight (5/10/20/30/50) directly.</div> -->
+        <div class="capacity-note">With the Glass cutter on, every present Glass Cutter item (Gemstone, Necklace, Horse Statue, Skull Statue, Venus Statues) is prioritized Loading bay crate never needs the cutter.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Buyer's List <span style="color:var(--dim);font-weight:400;">(up to 3)</span></h2>
+        <div id="buyerRows"></div>
+        <button class="ghost" id="addBuyerBtn" onclick="addBuyerRow()">+ Add Buyer Item</button>
+        <div class="note">Guaranteed bag space first. Loading bay crate can't go on this list.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Stolen Last Run - DEBUG</h2>
+        <label>MPX_K26_STOLENLAST_BS value</label>
+        <input type="text" id="stolenBitmask" placeholder="e.g. 268517135" inputmode="numeric">
+        <button class="ghost" style="width:100%;margin-top:8px;" onclick="applyStolenBitmask()">Clear stolen items</button>
+        <div id="stolenResult" class="note" style="display:none;"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Buyer Requirements - DEBUG</h2>
+        <label>MPX_K26_BUYREQ_BS value</label>
+        <input type="text" id="buyreqBitmask" placeholder="e.g. 268517135" inputmode="numeric">
+        <button class="ghost" style="width:100%;margin-top:8px;" onclick="applyBuyreqBitmask()">Load buyer's list</button>
+        <div id="buyreqResult" class="note" style="display:none;"></div>
+      </div>
+
+      <button class="run-btn" onclick="runOptimizer()">Allocate Loot →</button>
+
+      <div class="panel payout-panel">
+        <h2>Crew Mate Payout</h2>
+        <div class="payout-options">
+          <div class="payout-option">
+            <label><input type="checkbox" id="buyerBonus" onchange="updateCrewmatePayout()"> Buyer's Request</label>
+            <span class="bonus">+$100,000 / player</span>
+          </div>
+          <div class="payout-option">
+            <label><input type="checkbox" id="eliteBonus" onchange="updateCrewmatePayout()"> Elite</label>
+            <span class="bonus">+$100,000 / player</span>
+          </div>
+        </div>
+        <div class="payout-total">
+          <div class="payout-row"><span class="label">Loot share</span><span class="value" id="payoutLootShare">$0</span></div>
+          <div class="payout-row"><span class="label">Crew mate payout</span><span class="value" id="crewMatePayout">$200,000</span></div>
+          <!-- <div class="payout-row"><span class="label">Total crew payout</span><span class="value" id="totalCrewPayout">$800,000</span></div> -->
+        </div>
+        <div class="payout-note">Per player: $200,000 + the allocated loot value divided by crew size, plus selected bonuses.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <div class="panel">
+        <h2>What's Present This Run</h2>
+        <div class="presetbar">
+          <button class="ghost" onclick="setAllChecks(true)">Check all items</button>
+          <button class="ghost" onclick="setAllChecks(false)">Clear all items</button>
+        </div>
+        <div id="tierGroups"></div>
+      </div>
+      <div id="resultsArea" class="results"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function fmt(n){ return '$' + Math.round(n).toLocaleString(); }
+const avg = (a,b) => (a+b)/2;
+
+const LOADING_BAY = {id:'loadingBay', name:'Loading Bay item', tier:30, value:avg(105000,140000), cutter:false, special:'loadingBay'};
+
+const FIXED_ITEMS = {
+  50: [
+    {id:'gcb', name:'The Great Circle Back', value:avg(140000,162500), requiresMinPlayers:2},
+    {id:'blueprints', name:"Don't Forgo These Blueprints", value:avg(140000,162500), requiresMinPlayers:2},
+    {id:'sodoff', name:'Sod Off', value:avg(102500,122500)},
+    {id:'cooked', name:'Cooked', value:avg(102500,122500)},
+    {id:'doyouseeme', name:'Do You See Me', value:avg(102500,122500)},
+    {id:'laduchesse', name:'La Duchesse', value:avg(102500,122500)},
+    {id:'explainyourself', name:'Explain Yourself', value:avg(102500,122500)},
+    {id:'thechief', name:'The Chief', value:avg(102500,122500)},
+    {id:'canishominem', name:'Canis Hominem Edit', value:avg(102500,122500)},
+    {id:'orangecrush', name:'Orange Crush', value:avg(102500,122500)},
+    {id:'friendslikethese', name:'With Friends Like These', value:avg(70000,92500)},
+    {id:'hetgouden', name:'Het Gouden Hondje', value:avg(70000,92500)},
+    {id:'swingset', name:'Swingset Study No. LXIX', value:avg(70000,92500)},
+    {id:'hunterbecomes', name:'The Hunter Becomes the Hunted', value:avg(70000,92500)},
+  ],
+  30: [
+    {id:'venus', name:'Venus Statue', tier:30, cutter:true, value:avg(100000,127500), requiresMinPlayers:2},
+    {id:'gemstone', name:'Gemstone', tier:30, cutter:true, value:avg(100000,127500), requiresMinPlayers:2},
+    {id:'necklace', name:'Necklace (Coquard Carcanet)', tier:30, cutter:true, value:avg(77500,100000)},
+    {id:'horse', name:'Horse Statue', tier:30, cutter:true, value:avg(77500,100000)},
+    {id:'skull', name:'Skull Statue (Memento Non Mori)', tier:30, cutter:true, value:avg(77500,100000)},
+
+  ],
+  20: [
+    {id:'meteorite', name:'Meteorite Fragment', value:avg(70000,96000), requiresMinPlayers:2},
+    {id:'fert_crisp', name:'Ivory Fertility Statue (Crisp Gallery)', value:avg(70000,96000), requiresMinPlayers:2},
+    {id:"egg_second_floor", name:"Ornamental Egg - Upper Floor",value:avg(49000,64000)},
+    {id:'egg_ground', name:'Ornamental Egg - Floor -1', value:avg(49000,64000)},
+    {id:'fert_ground', name:'Fertility Statue - Ground', value:avg(49000,64000)},
+
+  ],
+  10: [
+    {id:'artdeco_circlets', name:'Art Deco Circlets', value:avg(42000,53000), requiresMinPlayers:2},
+    {id:'coquard_bracelets', name:'Coquard Bracelets', value:avg(28000,35000)},
+    {id:'pharaonic_bangles', name:'Pharaonic Bangles', value:avg(28000,35000)},
+    {id:'byzantine_hoops', name:'Byzantine Hoops', value:avg(28000,35000)},
+    {id:'antique_bands', name:'Antique Bands', value:avg(28000,35000)},
+    {id:'coquard_rings', name:'Coquard Rings', value:avg(28000,35000)},
+    {id:'artdeco_rings', name:'Art Deco Rings', value:avg(28000,35000)},
+    {id:'antique_rings', name:'Antique Rings', value:avg(28000,35000)},
+  ],
+};
+// Deposit box EV: weighted by the actual drop table, given a bag is present (5%×12500 + 5%×10000 + 35%×8000 + 35%×7500 + 10%×6000 + 10%×5000)
+//const DEPOSIT_BOX_VALUE = 0.05*12500 + 0.05*10000 + 0.35*8000 + 0.35*7500 + 0.10*6000 + 0.10*5000; // 7,650
+
+
+const TIER_LABELS = {50:'50 items',30:'30 items',20:'20 items',10:'10 items'};
+
+// ---- MPX_K26_STOLENLAST_BS bit map ----
+// The loading bay crate has no bit in this stat
+const STOLEN_BIT_MAP = [
+  {bit:32768, id:'antique_rings'},
+  {bit:1024,  id:'fert_ground'},
+  {bit:8192, id:'artdeco_rings'},
+  {bit:16384, id:'antique_bands'},
+  {bit:33554432, id:'thechief'},
+  {bit:134217728, id:'orangecrush'},
+  {bit:67108864, id:'canishominem'},
+  {bit:4194304, id:'doyouseeme'},
+  {bit:2048, id:'coquard_rings'},
+  {bit:16777216, id:'explainyourself'},
+  {bit:8388608, id:'laduchesse'},
+  {bit:4096, id:'pharaonic_bangles'},
+  {bit:131072,  id:'skull'},
+  {bit:65536,  id:'egg_second_floor'},
+  {bit:16, id:'byzantine_hoops'},
+  {bit:524288, id:'cooked'},
+  {bit:262144, id:'sodoff'},
+  {bit:4,  id:'horse'},
+  {bit:8,  id:'necklace'},
+  {bit:512,  id:'egg_ground'},
+  {bit:256, id:'coquard_bracelets'},
+  {bit:1048576, id:'gcb'},
+  {bit:2097152, id:'blueprints'},
+  {bit:2,  id:'gemstone'},
+  {bit:1,  id:'venus'},
+  {bit:128, id:'fert_crisp'},
+  {bit:64, id:'meteorite'},
+  {bit:32, id:'artdeco_circlets'},
+  {bit:1073741824, id:'swingset'},
+  {bit:268435456, id:'friendslikethese'},
+  {bit:2147483648, id:'hunterbecomes'},
+  {bit:536870912, id:'hetgouden'},
+];
+
+function hasBit(value, bit){ return Math.floor(value / bit) % 2 === 1; }
+
+
+function decodeBitmask(value){
+  const matched = [];
+  let matchedSum = 0;
+  STOLEN_BIT_MAP.forEach(entry => {
+    if(hasBit(value, entry.bit)){ matched.push(entry); matchedSum += entry.bit; }
+  });
+  return {matched, unrecognized: value - matchedSum};
+}
+function parseBitmaskInput(raw){
+  const value = Number(raw);
+  if(!raw || !Number.isFinite(value) || !Number.isInteger(value)) return null;
+  return value >>> 0;
+}
+
+function applyStolenBitmask(){
+  const raw = document.getElementById('stolenBitmask').value.trim();
+  const resultBox = document.getElementById('stolenResult');
+  resultBox.style.display = 'block';
+
+  const value = parseBitmaskInput(raw);
+  if(value === null){
+    resultBox.innerHTML = 'Enter a whole number from MPX_K26_STOLENLAST_BS.';
+    return;
+  }
+
+  const {matched, unrecognized} = decodeBitmask(value);
+  const clearedNames = [];
+
+  matched.forEach(entry => {
+    const cb = document.querySelector(`[data-role=present][data-id="${entry.id}"]`);
+    if(cb){
+      cb.checked = false;
+      clearedNames.push(findFixed(entry.id).name);
+    }
+  });
+
+  let html = clearedNames.length
+    ? `Cleared as stolen: <b>${clearedNames.join(', ')}</b>.`
+    : `No known items matched that value - nothing was cleared.`;
+
+  html += ` The loading bay crate has no bit in this stat - uncheck it yourself if it was taken.`;
+  if(unrecognized > 0){
+    html += ` Note: ${unrecognized} worth of bits in that value didn't match anything in the table - could be an item not yet in this tool.`;
+  }
+  resultBox.innerHTML = html;
+}
+function applyBuyreqBitmask(){
+  const raw = document.getElementById('buyreqBitmask').value.trim();
+  const resultBox = document.getElementById('buyreqResult');
+  resultBox.style.display = 'block';
+
+  const value = parseBitmaskInput(raw);
+  if(value === null){
+    resultBox.innerHTML = 'Enter a whole number from MPX_K26_BUYREQ_BS.';
+    return;
+  }
+
+  const {matched, unrecognized} = decodeBitmask(value);
+
+  document.getElementById('buyerRows').innerHTML = '';
+  const overflow = matched.length > 3 ? matched.slice(3) : [];
+  const toLoad = matched.slice(0, 3);
+
+  toLoad.forEach(entry => {
+    addBuyerRow();
+    const rows = document.querySelectorAll('.buyer-row select[data-role="buyer-item"]');
+    rows[rows.length - 1].value = entry.id;
+  });
+
+  if(toLoad.length === 0) addBuyerRow();
+
+  const names = toLoad.map(e => findFixed(e.id).name);
+  let html = names.length
+    ? `Loaded onto the buyer's list: <b>${names.join(', ')}</b>.`
+    : `No known items matched that value - buyer's list left empty.`;
+
+  if(overflow.length){
+    const overflowNames = overflow.map(e => findFixed(e.id).name);
+    html += ` Note: the buyer's list only holds 3 - <b>${overflowNames.join(', ')}</b> also matched this value but didn't fit.`;
+  }
+  if(unrecognized > 0){
+    html += ` Note: ${unrecognized} worth of bits in that value didn't match anything in the table - could be an item not yet in this tool.`;
+  }
+  resultBox.innerHTML = html;
+}
+function buildTierGroups(){
+  const container = document.getElementById('tierGroups');
+  container.innerHTML = '';
+
+  [50,30,20,10].forEach(tier => {
+    const group = document.createElement('div');
+    group.className = 'tier-group tier-' + tier;
+    const body = document.createElement('div');
+    body.className = 'tier-body open';
+
+    if(tier === 30){
+      const lr = document.createElement('div');
+      lr.className = 'item-row loading-row';
+      lr.innerHTML = `
+        <label><input type="checkbox" data-role="present" data-id="${LOADING_BAY.id}" checked>
+          ${LOADING_BAY.name} <span class="chip loading">Loading bay</span></label>
+        <span class="item-val">${fmt(LOADING_BAY.value)}</span>`;
+      body.appendChild(lr);
+    }
+
+    (FIXED_ITEMS[tier] || []).forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      const cutterChip = item.cutter ? '<span class="chip cutter">Cutter</span>' : '';
+      const minChip = item.requiresMinPlayers ? `<span class="chip">${item.requiresMinPlayers}+ Players</span>` : '';
+      row.innerHTML = `
+        <label><input type="checkbox" data-role="present" data-id="${item.id}" checked>
+          ${item.name} ${cutterChip}${minChip}</label>
+        <span class="item-val">${fmt(item.value)}</span>`;
+      body.appendChild(row);
+    });
+
+    const head = document.createElement('div');
+    head.className = 'tier-head';
+    head.innerHTML = `<span class="name">${TIER_LABELS[tier]}</span><span class="cnt">${(FIXED_ITEMS[tier] || []).length + (tier === 30 ? 1 : 0)} items</span>`;
+    head.onclick = () => body.classList.toggle('open');
+
+    group.appendChild(head);
+    group.appendChild(body);
+    container.appendChild(group);
+  });
+
+  // const depoGroup = document.createElement('div');
+  // depoGroup.className = 'tier-group tier-5';
+  // depoGroup.innerHTML = `
+  //   <div class="tier-head"><span class="name">5 items</span><span class="cnt">deposit boxes (variable count)</span></div>
+  //   <div class="depo-row">
+  //     <label style="margin:0;flex:1;">Deposit boxes with a bag confirmed present</label>
+  //     <input type="number" id="depoCount" min="0" max="20" value="0">
+  //     <span class="item-val">${fmt(DEPOSIT_BOX_VALUE)} ea. (EV)</span>
+  //   </div>`;
+  // container.appendChild(depoGroup);
+}
+buildTierGroups();
+
+function setAllChecks(state){
+  document.querySelectorAll('[data-role=present]').forEach(cb => cb.checked = state);
+}
+
+// ---- Buyer's list ----
+let buyerRowCount = 0;
+function buyerOptionsHtml(){
+  let html = '<option value="">Not Selected</option>';
+  [50, 30, 20, 10].forEach(tier => {
+    html += `<optgroup label="${TIER_LABELS[tier]}">`;
+    FIXED_ITEMS[tier].forEach(i => html += `<option value="${i.id}">${i.name}</option>`);
+    html += `</optgroup>`;
+  });
+  return html;
+}
+function addBuyerRow(){
+  if(document.querySelectorAll('.buyer-row').length >= 3) return;
+  const id = 'buyer_' + (buyerRowCount++);
+  const div = document.createElement('div');
+  div.className = 'buyer-row';
+  div.id = id;
+  div.innerHTML = `<select data-role="buyer-item">${buyerOptionsHtml()}</select>
+    <button class="danger" onclick="document.getElementById('${id}').remove(); syncBuyerBtn();">✕</button>`;
+  document.getElementById('buyerRows').appendChild(div);
+  syncBuyerBtn();
+}
+function syncBuyerBtn(){
+  document.getElementById('addBuyerBtn').disabled = document.querySelectorAll('.buyer-row').length >= 3;
+}
+addBuyerRow();
+
+function isFixedPresent(id){
+  const cb = document.querySelector(`[data-role=present][data-id="${id}"]`);
+  return cb ? cb.checked : false;
+}
+function findFixed(id){
+  if(id === LOADING_BAY.id) return {...LOADING_BAY};
+  for(const tier of [50,30,20,10]){
+    const found = (FIXED_ITEMS[tier]||[]).find(i => i.id === id);
+    if(found) return {...found, tier};
+  }
+  return null;
+}
+function minPlayersOk(entry, players){
+  return !entry.requiresMinPlayers || players >= entry.requiresMinPlayers;
+}
+function balancedFit(bags, weight){
+  let bestIdx = -1, bestRoom = -1;
+  bags.forEach((bag, i) => {
+    const room = 100 - bag.used;
+    if(room >= weight && room > bestRoom){
+      bestRoom = room;
+      bestIdx = i;
+    }
+  });
+  return bestIdx;
+}
+function tightFit(bags, weight){
+  let bestIdx = -1, bestLeftover = Infinity;
+  bags.forEach((bag, i) => {
+    const leftover = 100 - bag.used;
+    if(leftover >= weight && leftover < bestLeftover){ bestLeftover = leftover; bestIdx = i; }
+  });
+  return bestIdx;
+}
+function place(bags, item, mode){
+  const idx = (mode === 'tight') ? tightFit(bags, item.weight) : balancedFit(bags, item.weight);
+  if(idx === -1) return false;
+  bags[idx].items.push(item);
+  bags[idx].used += item.weight;
+  return true;
+}
+
+function knapsackSelect(items, capacity){
+  if(capacity <= 0 || items.length === 0) return [];
+  const dp = new Array(capacity + 1).fill(0);
+  const keep = items.map(() => new Array(capacity + 1).fill(false));
+  items.forEach((item, i) => {
+    for(let c = capacity; c >= item.weight; c--){
+      const candidate = dp[c - item.weight] + item.value;
+      if(candidate > dp[c]){ dp[c] = candidate; keep[i][c] = true; }
+    }
+  });
+  let c = capacity;
+  const selected = [];
+  for(let i = items.length - 1; i >= 0; i--){
+    if(keep[i][c]){ selected.push(items[i]); c -= items[i].weight; }
+  }
+  return selected;
+}
+
+let lastAllocatedLootValue = 0;
+
+function updateCrewmatePayout(totalValue = lastAllocatedLootValue, players = parseInt(document.getElementById('players').value, 10) || 1){
+  lastAllocatedLootValue = totalValue;
+  const lootShare = totalValue / players;
+  const buyerBonus = document.getElementById('buyerBonus').checked ? 100000 : 0;
+  const eliteBonus = document.getElementById('eliteBonus').checked ? 100000 : 0;
+  const payout = 200000 + lootShare + buyerBonus + eliteBonus;
+  document.getElementById('payoutLootShare').textContent = fmt(lootShare);
+  document.getElementById('crewMatePayout').textContent = fmt(payout);
+}
+
+function runOptimizer(){
+  const players = parseInt(document.getElementById('players').value, 10);
+  const hasCutter = document.getElementById('hasCutter').checked;
+
+  const bags = Array.from({length:players}, () => ({items:[], used:0}));
+  const consumedFixed = new Set();
+  const unassigned = [];
+
+  const buyerSelects = document.querySelectorAll('[data-role=buyer-item]');
+  let buyerWanted = 0;
+  buyerSelects.forEach(sel => {
+    const raw = sel.value;
+    if(!raw) return;
+    buyerWanted++;
+    const item = findFixed(raw);
+    const label = item.name;
+    if(item.cutter && !hasCutter){
+      unassigned.push({name:label, reason:'Buyer wants this 30 - requires glass cutter, unavailable this run'});
+      return;
+    }
+    if(!minPlayersOk(item, players)){
+      unassigned.push({name:label, reason:`Buyer wants this item - requires ${item.requiresMinPlayers}+ players, only ${players} this run`});
+      return;
+    }
+    if(!isFixedPresent(raw)){
+      unassigned.push({name:label, reason:'Buyer wants this item - not present this run'}); // user error
+      return;
+    }
+    const ok = place(bags, {name:label, tier:item.tier, weight:item.tier, value:item.value, stage:'buyer'});
+    if(!ok){
+      unassigned.push({name:label, reason:'No bag space left for buyer item'}); // unlikey to happen
+      return;
+    }
+    consumedFixed.add(raw);
+  });
+
+  if(isFixedPresent(LOADING_BAY.id) && !consumedFixed.has(LOADING_BAY.id)){
+    const ok = place(bags, {name:LOADING_BAY.name, tier:30, weight:30, value:LOADING_BAY.value, stage:'loading'});
+    if(ok){ consumedFixed.add(LOADING_BAY.id); }
+    else { unassigned.push({name:LOADING_BAY.name, reason:"No bag space left (buyer's list took priority)"}); }
+  }
+
+  const cutter30Candidates = [];
+  FIXED_ITEMS[30].forEach(item => {
+    if(!item.cutter || consumedFixed.has(item.id)) return;
+    if(!isFixedPresent(item.id)) return;
+    if(!minPlayersOk(item, players)){
+      unassigned.push({name:item.name, reason:`Requires ${item.requiresMinPlayers}+ Players - only ${players} this run`});
+      return;
+    }
+    cutter30Candidates.push({id:item.id, name:item.name, value:item.value, tier:30});
+  });
+
+  cutter30Candidates.sort((a,b) => b.value - a.value);
+
+  if(hasCutter){
+    cutter30Candidates.forEach(c => {
+      const ok = place(bags, {name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30'});
+      if(ok) consumedFixed.add(c.id);
+      else unassigned.push({name:c.name, reason:'No bag space left'});
+    });
+  } else {
+    cutter30Candidates.forEach(c => unassigned.push({name:c.name, reason:'Requires glass cutter - unavailable this run'}));
+  }
+
+  const generalPool = [];
+  [50,20,10].forEach(tier => {
+    (FIXED_ITEMS[tier]||[]).forEach(item => {
+      if(consumedFixed.has(item.id) || !isFixedPresent(item.id)) return;
+      if(!minPlayersOk(item, players)){ unassigned.push({name:item.name, reason:`Requires ${item.requiresMinPlayers}+ players - only ${players} this run`}); return; }
+      generalPool.push({name:item.name, tier, weight:tier, value:item.value});
+    });
+  });
+  // const depoCount = Math.max(0, parseInt(document.getElementById('depoCount').value,10) || 0);
+  // for(let i=0;i<depoCount;i++){
+  //   generalPool.push({name:'Deposit Box', tier:5, weight:5, value:DEPOSIT_BOX_VALUE});
+  // }
+
+  const totalRoomLeft = bags.reduce((s,b) => s + (100 - b.used), 0);
+  const chosen = knapsackSelect(generalPool, totalRoomLeft);
+  chosen.sort((a,b) => b.weight - a.weight);
+
+  let leftoverPool = [];
+  chosen.forEach(item => {
+    const ok = place(bags, {...item, stage:'value'});
+    if(!ok) leftoverPool.push(item);
+  });
+
+  const stillUnplaced = [];
+  leftoverPool.forEach(item => {
+    const ok = place(bags, {...item, stage:'value'}, 'tight');
+    if(!ok) stillUnplaced.push(item);
+  });
+  stillUnplaced.forEach(item => unassigned.push({name:item.name, reason:'No bag space left'}));
+
+  renderResults({players, bags, unassigned, hasCutter, buyerWanted});
+}
+
+function renderResults({players, bags, unassigned, hasCutter, buyerWanted}){
+  const area = document.getElementById('resultsArea');
+
+  const assigned = bags.flatMap(b => b.items);
+  const totalValue = assigned.reduce((s,i) => s + i.value, 0);
+  const cutterCount = assigned.filter(i => i.stage==='cutter-30').length;
+  const buyerCount = assigned.filter(i => i.stage==='buyer').length;
+  const loadingSecured = assigned.some(i => i.stage==='loading');
+  const totalCapacity = players * 100;
+  const usedCap = bags.reduce((s,b) => s + b.used, 0);
+
+  updateCrewmatePayout(totalValue, players);
+
+  let html = `
+    <div class="summary-bar">
+      <div class="stat"><div class="num">${usedCap}/${totalCapacity}</div><div class="lbl">capacity used</div></div>
+      <div class="stat"><div class="num">${buyerCount}/${buyerWanted}</div><div class="lbl">buyer items secured</div></div>
+      <div class="stat"><div class="num">${loadingSecured ? 'Yes' : 'No'}</div><div class="lbl">loading bay secured</div></div>
+      <div class="stat"><div class="num">${cutterCount}</div><div class="lbl">cutter 30s secured</div></div>
+      <div class="stat"><div class="num">${fmt(totalValue)}</div><div class="lbl">total run value</div></div>
+    </div>
+    <div class="bag-grid">`;
+
+  bags.forEach((bag, idx) => {
+    html += `<div class="bag"><h3>Player ${idx+1}</h3><div class="barwrap"><div class="bar" style="width:${bag.used}%"></div></div><ul>`;
+    if(bag.items.length===0){
+      html += `<li style="color:var(--dim)">- empty -</li>`;
+    } else {
+      bag.items.forEach(item => {
+        let chip = `<span class="chip">${item.tier}</span>`;
+        if(item.stage==='buyer') chip = `<span class="chip buyer">Buyer</span>`;
+        else if(item.stage==='loading') chip = `<span class="chip loading">Loading bay</span>`;
+        else if(item.stage==='cutter-30') chip = `<span class="chip cutter">${item.tier} Glass Cutter</span>`;
+        html += `<li><span class="nm">${item.name} ${chip}</span><span class="wt">${fmt(item.value)}</span></li>`;
+      });
+    }
+    html += `</ul><div class="fill">${bag.used}/100 used</div></div>`;
+  });
+  html += `</div>`;
+
+  if(unassigned.length){
+    html += `<div class="leftover"><h3>Left behind this run</h3><ul>`;
+    unassigned.forEach(i => { html += `<li><b>${i.name}</b> - ${i.reason}</li>`; });
+    html += `</ul></div>`;
+  }
+
+  area.innerHTML = html;
+}
+</script>
+</body>
+</html>
