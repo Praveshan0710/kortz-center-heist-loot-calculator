@@ -613,22 +613,20 @@ function runOptimizer(){
   //   generalPool.push({name:'Deposit Box', tier:5, weight:5, value:DEPOSIT_BOX_VALUE});
   // }
 
-  const totalRoomLeft = bags.reduce((s,b) => s + (100 - b.used), 0);
-  const chosen = knapsackSelect(generalPool, totalRoomLeft);
-  chosen.sort((a,b) => b.weight - a.weight);
-
-  let leftoverPool = [];
-  chosen.forEach(item => {
-    const ok = place(bags, {...item, stage:'value'});
-    if(!ok) leftoverPool.push(item);
+  let pool = generalPool.slice();
+  bags.forEach(bag => {
+    const room = 100 - bag.used;
+    if(room <= 0 || pool.length === 0) return;
+    const chosen = knapsackSelect(pool, room);
+    chosen.forEach(item => {
+      bag.items.push({...item, stage:'value'});
+      bag.used += item.weight;
+      const idx = pool.indexOf(item);
+      if(idx !== -1) pool.splice(idx, 1);
+    });
   });
 
-  const stillUnplaced = [];
-  leftoverPool.forEach(item => {
-    const ok = place(bags, {...item, stage:'value'}, 'tight');
-    if(!ok) stillUnplaced.push(item);
-  });
-  stillUnplaced.forEach(item => unassigned.push({name:item.name, reason:'No bag space left'}));
+  pool.forEach(item => unassigned.push({name:item.name, reason:'No bag space left'}));
 
   renderResults({players, bags, unassigned, hasCutter, buyerWanted});
 }
