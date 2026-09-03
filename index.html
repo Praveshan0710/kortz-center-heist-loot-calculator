@@ -131,8 +131,12 @@
           <span>Glass Cutter Available</span>
           <label class="switch"><input type="checkbox" id="hasCutter" checked><span class="slider"></span></label>
         </div>
+        <div class="toggle-row">
+          <span>Prioritize Glass Cutter Items</span>
+          <label class="switch"><input type="checkbox" id="prioritizeCutter" checked><span class="slider"></span></label>
+        </div>
         <!-- <div class="capacity-note">Every player's duffel is <b>100 capacity</b>. Each item consumes its listed weight (5/10/20/30/50) directly.</div> -->
-        <div class="capacity-note">With the Glass cutter on, every present Glass Cutter item (Gemstone, Necklace, Horse Statue, Skull Statue, Venus Statues) is prioritized Loading bay crate never needs the cutter.</div>
+        <div class="capacity-note">With the Glass Cutter available, Glass Cutter items can be collected. When prioritization is enabled, Glass Cutter items are secured before normal loot. Loading bay crate never needs the cutter.</div>
       </div>
 
       <div class="panel">
@@ -538,6 +542,7 @@ function updateCrewmatePayout(totalValue = lastAllocatedLootValue, players = par
 function runOptimizer(){
   const players = parseInt(document.getElementById('players').value, 10);
   const hasCutter = document.getElementById('hasCutter').checked;
+  const prioritizeCutter = document.getElementById('prioritizeCutter').checked;
 
   const bags = Array.from({length:players}, () => ({items:[], used:0}));
   const consumedFixed = new Set();
@@ -590,17 +595,24 @@ function runOptimizer(){
 
   cutter30Candidates.sort((a,b) => b.value - a.value);
 
-  if(hasCutter){
+  if(hasCutter && prioritizeCutter){
     cutter30Candidates.forEach(c => {
       const ok = place(bags, {name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30'});
       if(ok) consumedFixed.add(c.id);
       else unassigned.push({name:c.name, reason:'No bag space left'});
     });
-  } else {
+  } else if(!hasCutter) {
     cutter30Candidates.forEach(c => unassigned.push({name:c.name, reason:'Requires glass cutter - unavailable this run'}));
   }
 
   const generalPool = [];
+
+  if(hasCutter && !prioritizeCutter){
+    cutter30Candidates.forEach(item => {
+      generalPool.push({name:item.name, tier:30, weight:30, value:item.value, stage:'cutter-30'});
+    });
+  }
+
   [50,20,10].forEach(tier => {
     (FIXED_ITEMS[tier]||[]).forEach(item => {
       if(consumedFixed.has(item.id) || !isFixedPresent(item.id)) return;
@@ -619,7 +631,7 @@ function runOptimizer(){
     if(room <= 0 || pool.length === 0) return;
     const chosen = knapsackSelect(pool, room);
     chosen.forEach(item => {
-      bag.items.push({...item, stage:'value'});
+      bag.items.push({...item, stage:item.stage || 'value'});
       bag.used += item.weight;
       const idx = pool.indexOf(item);
       if(idx !== -1) pool.splice(idx, 1);
