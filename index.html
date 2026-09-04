@@ -490,7 +490,7 @@ function secureCutter30s(bags, consumed, unassigned, hasCutter, prioritizeCutter
   const remaining = cutter30Candidates.filter(c => !consumed.has(c.id));
   if(hasCutter && prioritizeCutter){
     remaining.forEach(c => {
-      const ok = place(bags, {name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30', cutter:true});
+      const ok = place(bags, {id:c.id, name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30', cutter:true});
       if(ok) consumed.add(c.id);
       else unassigned.push({name:c.name, reason:'No bag space left'});
     });
@@ -503,7 +503,7 @@ function buildGeneralPool(consumed, remainingCutters, hasCutter, prioritizeCutte
   const pool = extraItems ? extraItems.slice() : [];
   if(hasCutter && !prioritizeCutter){
     remainingCutters.forEach(c => {
-      if(!consumed.has(c.id)) pool.push({name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30', cutter:true});
+      if(!consumed.has(c.id)) pool.push({id:c.id, name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30', cutter:true});
     });
   }
   generalBase.forEach(item => {
@@ -647,6 +647,40 @@ function itemChips(item){
   else chips.push(`<span class="chip">${item.tier}</span>`);
   return chips.join(' ');
 }
+function computeNextStolenBitmask(items){
+  let value = 0;
+  const seen = new Set();
+  items.forEach(item => {
+    if(!item.id || seen.has(item.id)) return;
+    const entry = STOLEN_BIT_MAP.find(e => e.id === item.id);
+    if(entry){ value += entry.bit; seen.add(item.id); }
+  });
+  return value >>> 0;
+}
+function fallbackCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try{ document.execCommand('copy'); } catch(e){}
+  document.body.removeChild(ta);
+}
+function copyStolenValue(value, btn){
+  const text = String(value);
+  const original = btn.textContent;
+  const flash = () => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = original; }, 1400);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(flash).catch(() => { fallbackCopy(text); flash(); });
+  } else {
+    fallbackCopy(text);
+    flash();
+  }
+}
 function renderResults({players, bags, unassigned, hasCutter, buyerWanted}){
   const area = document.getElementById('resultsArea');
   const assigned = bags.flatMap(b => b.items);
@@ -656,6 +690,7 @@ function renderResults({players, bags, unassigned, hasCutter, buyerWanted}){
   const loadingSecured = assigned.some(i => i.stage==='loading');
   const totalCapacity = players * 100;
   const usedCap = bags.reduce((s,b) => s + b.used, 0);
+  const nextStolenValue = computeNextStolenBitmask(assigned);
   updateCrewmatePayout(totalValue, players);
   let html = `
     <div class="summary-bar">
@@ -678,6 +713,11 @@ function renderResults({players, bags, unassigned, hasCutter, buyerWanted}){
     html += `</ul><div class="fill">${bag.used}/100 used</div></div>`;
   });
   html += `</div>`;
+  html += `
+  <div class="toggle-row">
+    <span>Next run's MPX_K26_STOLENLAST_BS: <b>${nextStolenValue}</b></span>
+    <button class="ghost" onclick="copyStolenValue(${nextStolenValue}, this)">Copy</button>
+  </div>`;
   if(unassigned.length){
     html += `<div class="leftover"><h3>Left behind this run</h3><ul>`;
     unassigned.forEach(i => { html += `<li><b>${i.name}</b> - ${i.reason}</li>`; });
