@@ -480,6 +480,51 @@ function enumerateBuyerAssignments(buyerItems, numBags){
   rec(0, Array.from({length: numBags}, () => []));
   return results;
 }
+function secureLoadingBay(bags, consumed, unassigned, reasonSuffix){
+  if(!isFixedPresent(LOADING_BAY.id) || consumed.has(LOADING_BAY.id)) return;
+  const ok = place(bags, {name:LOADING_BAY.name, tier:30, weight:30, value:LOADING_BAY.value, stage:'loading', cutter:false});
+  if(ok) consumed.add(LOADING_BAY.id);
+  else unassigned.push({name:LOADING_BAY.name, reason:'No bag space left' + (reasonSuffix || '')});
+}
+function secureCutter30s(bags, consumed, unassigned, hasCutter, prioritizeCutter, cutter30Candidates){
+  const remaining = cutter30Candidates.filter(c => !consumed.has(c.id));
+  if(hasCutter && prioritizeCutter){
+    remaining.forEach(c => {
+      const ok = place(bags, {name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30', cutter:true});
+      if(ok) consumed.add(c.id);
+      else unassigned.push({name:c.name, reason:'No bag space left'});
+    });
+  } else if(!hasCutter){
+    remaining.forEach(c => unassigned.push({name:c.name, reason:'Requires glass cutter - unavailable this run'}));
+  }
+  return remaining;
+}
+function buildGeneralPool(consumed, remainingCutters, hasCutter, prioritizeCutter, generalBase, extraItems){
+  const pool = extraItems ? extraItems.slice() : [];
+  if(hasCutter && !prioritizeCutter){
+    remainingCutters.forEach(c => {
+      if(!consumed.has(c.id)) pool.push({name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30', cutter:true});
+    });
+  }
+  generalBase.forEach(item => {
+    if(!consumed.has(item.id)) pool.push({...item});
+  });
+  return pool;
+}
+function fillBagsWithPool(bags, pool, unassigned){
+  bags.forEach(bag => {
+    const room = 100 - bag.used;
+    if(room <= 0 || pool.length === 0) return;
+    const chosen = knapsackSelect(pool, room);
+    chosen.forEach(item => {
+      bag.items.push({...item, stage:item.stage || 'value'});
+      bag.used += item.weight;
+      const idx = pool.indexOf(item);
+      if(idx !== -1) pool.splice(idx, 1);
+    });
+  });
+  pool.forEach(item => unassigned.push({name:item.name, reason:'No bag space left'}));
+}
 let lastAllocatedLootValue = 0;
 function updateCrewmatePayout(totalValue = lastAllocatedLootValue, players = parseInt(document.getElementById('players').value, 10) || 1){
   lastAllocatedLootValue = totalValue;
@@ -517,7 +562,7 @@ function runOptimizer(){
       earlyUnassigned.push({name:label, reason:'Buyer wants this item - not present this run'});
       return;
     }
-    validBuyers.push({id:raw, name:label, tier:item.tier, weight:item.tier, value:item.value, stage:'buyer'});
+    validBuyers.push({id:raw, name:label, tier:item.tier, weight:item.tier, value:item.value, stage:'buyer', cutter:!!item.cutter});
   });
 
   const cutter30Candidates = [];
@@ -534,7 +579,7 @@ function runOptimizer(){
     (FIXED_ITEMS[tier]||[]).forEach(item => {
       if(!isFixedPresent(item.id)) return;
       if(!minPlayersOk(item, players)) return;
-      generalBase.push({id:item.id, name:item.name, tier, weight:tier, value:item.value});
+      generalBase.push({id:item.id, name:item.name, tier, weight:tier, value:item.value, cutter:false});
     });
   });
 
@@ -560,45 +605,10 @@ function runOptimizer(){
         });
       });
 
-      if(isFixedPresent(LOADING_BAY.id) && !consumed.has(LOADING_BAY.id)){
-        const ok = place(bags, {name:LOADING_BAY.name, tier:30, weight:30, value:LOADING_BAY.value, stage:'loading'});
-        if(ok) consumed.add(LOADING_BAY.id);
-        else unassigned.push({name:LOADING_BAY.name, reason:"No bag space left (buyer's list took priority)"});
-      }
-
-      const remainingCutters = cutter30Candidates.filter(c => !consumed.has(c.id));
-      if(hasCutter && prioritizeCutter){
-        remainingCutters.forEach(c => {
-          const ok = place(bags, {name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30'});
-          if(ok) consumed.add(c.id);
-          else unassigned.push({name:c.name, reason:'No bag space left'});
-        });
-      } else if(!hasCutter) {
-        remainingCutters.forEach(c => unassigned.push({name:c.name, reason:'Requires glass cutter - unavailable this run'}));
-      }
-
-      let pool = [];
-      if(hasCutter && !prioritizeCutter){
-        remainingCutters.forEach(c => {
-          if(!consumed.has(c.id)) pool.push({name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30'});
-        });
-      }
-      generalBase.forEach(item => {
-        if(!consumed.has(item.id)) pool.push({...item});
-      });
-
-      bags.forEach(bag => {
-        const room = 100 - bag.used;
-        if(room <= 0 || pool.length === 0) return;
-        const chosen = knapsackSelect(pool, room);
-        chosen.forEach(item => {
-          bag.items.push({...item, stage:item.stage || 'value'});
-          bag.used += item.weight;
-          const idx = pool.indexOf(item);
-          if(idx !== -1) pool.splice(idx, 1);
-        });
-      });
-      pool.forEach(item => unassigned.push({name:item.name, reason:'No bag space left'}));
+      secureLoadingBay(bags, consumed, unassigned, " (buyer's list took priority)");
+      const remainingCutters = secureCutter30s(bags, consumed, unassigned, hasCutter, prioritizeCutter, cutter30Candidates);
+      const pool = buildGeneralPool(consumed, remainingCutters, hasCutter, prioritizeCutter, generalBase);
+      fillBagsWithPool(bags, pool, unassigned);
 
       const totalValue = bags.flatMap(b => b.items).reduce((s,i) => s + i.value, 0);
       if(totalValue > bestValue){
@@ -614,49 +624,13 @@ function runOptimizer(){
     const consumed = new Set();
     const unassigned = earlyUnassigned.slice();
 
-    if(isFixedPresent(LOADING_BAY.id)){
-      const ok = place(bags, {name:LOADING_BAY.name, tier:30, weight:30, value:LOADING_BAY.value, stage:'loading'});
-      if(ok) consumed.add(LOADING_BAY.id);
-      else unassigned.push({name:LOADING_BAY.name, reason:"No bag space left"});
-    }
+    secureLoadingBay(bags, consumed, unassigned);
+    const remainingCutters = secureCutter30s(bags, consumed, unassigned, hasCutter, prioritizeCutter, cutter30Candidates);
 
-    const remainingCutters = cutter30Candidates.filter(c => !consumed.has(c.id));
-    if(hasCutter && prioritizeCutter){
-      remainingCutters.forEach(c => {
-        const ok = place(bags, {name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30'});
-        if(ok) consumed.add(c.id);
-        else unassigned.push({name:c.name, reason:'No bag space left'});
-      });
-    } else if(!hasCutter) {
-      remainingCutters.forEach(c => unassigned.push({name:c.name, reason:'Requires glass cutter - unavailable this run'}));
-    }
+    const buyerPoolItems = validBuyers.filter(b => !consumed.has(b.id)).map(b => ({...b, stage:'value'}));
+    const pool = buildGeneralPool(consumed, remainingCutters, hasCutter, prioritizeCutter, generalBase, buyerPoolItems);
+    fillBagsWithPool(bags, pool, unassigned);
 
-    let pool = [];
-
-    validBuyers.forEach(b => {
-      if(!consumed.has(b.id)) pool.push({...b, stage:'value'});
-    });
-    if(hasCutter && !prioritizeCutter){
-      remainingCutters.forEach(c => {
-        if(!consumed.has(c.id)) pool.push({name:c.name, tier:30, weight:30, value:c.value, stage:'cutter-30'});
-      });
-    }
-    generalBase.forEach(item => {
-      if(!consumed.has(item.id)) pool.push({...item});
-    });
-
-    bags.forEach(bag => {
-      const room = 100 - bag.used;
-      if(room <= 0 || pool.length === 0) return;
-      const chosen = knapsackSelect(pool, room);
-      chosen.forEach(item => {
-        bag.items.push({...item, stage:item.stage || 'value'});
-        bag.used += item.weight;
-        const idx = pool.indexOf(item);
-        if(idx !== -1) pool.splice(idx, 1);
-      });
-    });
-    pool.forEach(item => unassigned.push({name:item.name, reason:'No bag space left'}));
     best = {bags, unassigned, totalValue: bags.flatMap(b => b.items).reduce((s,i) => s + i.value, 0)};
     securedAllBuyers = false;
   }
@@ -665,11 +639,19 @@ function runOptimizer(){
 
   renderResults({players, bags: best.bags, unassigned: best.unassigned, hasCutter, buyerWanted});
 }
+function itemChips(item){
+  if(item.stage === 'loading') return `<span class="chip loading">Loading bay</span>`;
+  const chips = [];
+  if(item.stage === 'buyer') chips.push(`<span class="chip buyer">Buyer</span>`);
+  if(item.cutter) chips.push(`<span class="chip cutter">Cutter ${item.tier}</span>`);
+  else chips.push(`<span class="chip">${item.tier}</span>`);
+  return chips.join(' ');
+}
 function renderResults({players, bags, unassigned, hasCutter, buyerWanted}){
   const area = document.getElementById('resultsArea');
   const assigned = bags.flatMap(b => b.items);
   const totalValue = assigned.reduce((s,i) => s + i.value, 0);
-  const cutterCount = assigned.filter(i => i.stage==='cutter-30').length;
+  const cutterCount = assigned.filter(i => i.cutter).length;
   const buyerCount = assigned.filter(i => i.stage==='buyer').length;
   const loadingSecured = assigned.some(i => i.stage==='loading');
   const totalCapacity = players * 100;
@@ -690,11 +672,7 @@ function renderResults({players, bags, unassigned, hasCutter, buyerWanted}){
       html += `<li style="color:var(--dim)">- empty -</li>`;
     } else {
       bag.items.forEach(item => {
-        let chip = `<span class="chip">${item.tier}</span>`;
-        if(item.stage==='buyer') chip = `<span class="chip buyer">Buyer</span>`;
-        else if(item.stage==='loading') chip = `<span class="chip loading">Loading bay</span>`;
-        else if(item.stage==='cutter-30') chip = `<span class="chip cutter">${item.tier} Glass Cutter</span>`;
-        html += `<li><span class="nm">${item.name} ${chip}</span><span class="wt">${fmt(item.value)}</span></li>`;
+        html += `<li><span class="nm">${item.name} ${itemChips(item)}</span><span class="wt">${fmt(item.value)}</span></li>`;
       });
     }
     html += `</ul><div class="fill">${bag.used}/100 used</div></div>`;
